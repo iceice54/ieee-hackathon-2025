@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import axios from "axios";
+
 import {
   Box,
   Button,
@@ -8,40 +10,75 @@ import {
   InputAdornment,
   AppBar,
   Toolbar,
+  Skeleton,
 } from "@mui/material";
 import { FaPaperPlane } from "react-icons/fa";
 
 interface Message {
   text: string;
-  sender: "user" | "bot";
+  sender: "user" | "model";
 }
 
-const App: React.FC = () => {
+function App() {
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isMessageSent, setIsMessageSent] = useState<boolean>(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [isLoading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const handleMessageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInput(event.target.value);
   };
 
+  const handlePrompt = async (prompt: string) => {
+    setLoading(true);
+
+    try {
+      // const groupedMessages = {
+      //   user: messages
+      //     .filter((msg) => msg.sender === "user")
+      //     .map((msg) => msg.text),
+      //   model: messages
+      //     .filter((msg) => msg.sender === "model")
+      //     .map((msg) => msg.text),
+      // };
+      // const jsonString = JSON.stringify(groupedMessages);
+      const res = await axios.post(
+        "http://127.0.0.1:5000/prompt",
+        { prompt },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      setMessages((prev) => [
+        ...prev,
+        { text: res.data.response, sender: "model" },
+      ]);
+      setLoading(false);
+      // console.log(res.data);
+      console.log(messages);
+    } catch (err) {
+      console.error(err);
+    } finally {
+    }
+  };
+
   const handleSendClick = () => {
+    console.log("Before calling API:", input); // Check what input is before calling
     if (input.trim()) {
       setIsMessageSent(true);
-      console.log(input);
+      handlePrompt(input);
       setInput(""); // Clear input after sending.
     }
   };
 
-  const sendMessage = (text: string, sender: "user" | "bot") => {
+  const sendMessage = (text: string, sender: "user" | "model") => {
     if (!text.trim()) return;
     setMessages((prev) => [...prev, { text, sender }]);
-    setInput(""); // Clear input after sending
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   return (
@@ -59,7 +96,10 @@ const App: React.FC = () => {
         sx={{ backgroundColor: "#29867c", alignSelf: "baseline" }}
       >
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1, textAlign: "center" }}>
+          <Typography
+            variant="h6"
+            sx={{ flexGrow: 1, textAlign: "center", fontSize: "30px" }}
+          >
             Changentic AI
           </Typography>
         </Toolbar>
@@ -80,7 +120,7 @@ const App: React.FC = () => {
             sx={{
               flex: 1, // Take up remaining space
               width: "70%",
-              maxWidth: "1200px",
+              maxWidth: "70%",
               margin: "0",
               overflowY: "auto", // Enable scrolling for long conversations
               mb: 2,
@@ -93,22 +133,35 @@ const App: React.FC = () => {
                   display: "flex",
                   justifyContent:
                     msg.sender === "user" ? "flex-end" : "flex-start",
+                  marginRight: msg.sender === "user" ? "7px" : "0",
                   mb: 1,
                 }}
               >
                 <Typography
                   sx={{
-                    bgcolor: msg.sender === "user" ? "#1976d2" : "#e0e0e0",
-                    color: msg.sender === "user" ? "white" : "black",
+                    bgcolor: msg.sender === "user" ? "#e0e0e0" : "#29867c",
+                    color: msg.sender === "user" ? "black" : "white",
                     p: 1.5,
                     borderRadius: "10px",
                     maxWidth: "70%",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
                   }}
                 >
                   {msg.text}
                 </Typography>
               </Box>
             ))}
+            {isLoading && (
+              <Box sx={{ width: 400 }}>
+                <Skeleton />
+                <Skeleton animation="wave" />
+                <Skeleton animation={false} />
+                <Skeleton />
+                <Skeleton animation={false} />
+              </Box>
+            )}
+            <div ref={scrollRef} />
           </Box>
         )}
         {!isMessageSent && (
@@ -124,7 +177,6 @@ const App: React.FC = () => {
           justifyContent="center"
           width="100%"
           margin="0px"
-          mt={4}
         >
           <TextField
             variant="outlined"
@@ -150,7 +202,10 @@ const App: React.FC = () => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <Button
-                      onClick={handleSendClick}
+                      onClick={() => {
+                        handleSendClick();
+                        sendMessage(input, "user");
+                      }}
                       sx={{
                         width: "30px",
                         height: "40px",
@@ -172,6 +227,6 @@ const App: React.FC = () => {
       </Box>
     </Container>
   );
-};
+}
 
 export default App;
