@@ -3,11 +3,8 @@ import google.generativeai as genai
 import chromadb
 import json
 import re
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
-google_api_key = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key="AIzaSyDIUseb8tdRlaNzkQW29KwDUx6sU4_1bAk")
 
 genai.configure(api_key=google_api_key)
 
