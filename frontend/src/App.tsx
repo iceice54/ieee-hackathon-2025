@@ -34,15 +34,6 @@ function App() {
     setLoading(true);
 
     try {
-      // const groupedMessages = {
-      //   user: messages
-      //     .filter((msg) => msg.sender === "user")
-      //     .map((msg) => msg.text),
-      //   model: messages
-      //     .filter((msg) => msg.sender === "model")
-      //     .map((msg) => msg.text),
-      // };
-      // const jsonString = JSON.stringify(groupedMessages);
       const res = await axios.post(
         "http://127.0.0.1:5000/prompt",
         { prompt },
@@ -53,8 +44,6 @@ function App() {
         { text: res.data.response, sender: "model" },
       ]);
       setLoading(false);
-      // console.log(res.data);
-      console.log(messages);
     } catch (err) {
       console.error(err);
     } finally {
@@ -62,11 +51,10 @@ function App() {
   };
 
   const handleSendClick = () => {
-    console.log("Before calling API:", input); // Check what input is before calling
     if (input.trim()) {
       setIsMessageSent(true);
       handlePrompt(input);
-      setInput(""); // Clear input after sending.
+      setInput("");
     }
   };
 
@@ -100,7 +88,7 @@ function App() {
             variant="h6"
             sx={{ flexGrow: 1, textAlign: "center", fontSize: "30px" }}
           >
-            Changentic AI
+            Changentic.AI: Change made easier
           </Typography>
         </Toolbar>
       </AppBar>
@@ -114,15 +102,14 @@ function App() {
         bgcolor="#f5f5f5"
         marginTop="10px"
       >
-        {/* Chatbot Title */}
         {isMessageSent && (
           <Box
             sx={{
-              flex: 1, // Take up remaining space
+              flex: 1,
               width: "70%",
               maxWidth: "70%",
               margin: "0",
-              overflowY: "auto", // Enable scrolling for long conversations
+              overflowY: "auto",
               mb: 2,
             }}
           >
@@ -146,9 +133,17 @@ function App() {
                     maxWidth: "70%",
                     wordBreak: "break-word",
                     overflowWrap: "break-word",
+                    whiteSpace: "pre-wrap",
                   }}
                 >
-                  {msg.text}
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: msg.text
+                        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                        .replace(/^\* /gm, "• ")
+                        .replace(/\n/g, "<br>"), 
+                    }}
+                  />
                 </Typography>
               </Box>
             ))}
@@ -165,12 +160,11 @@ function App() {
           </Box>
         )}
         {!isMessageSent && (
-          <Typography variant="h3" color="#29867c" gutterBottom>
-            Changentic AI
+          <Typography variant="h2" color="#29867c" marginBottom="55px">
+            Changetic.AI
           </Typography>
         )}
 
-        {/* Message Input and Send Button */}
         <Box
           display="flex"
           alignItems="center"
@@ -191,11 +185,11 @@ function App() {
               }
             }}
             multiline
-            maxRows={6} // Maximum number of rows before scroll appear
+            maxRows={6}
             sx={{
               margin: 0,
               marginBottom: 3,
-              width: "70%", // Adjust width here (e.g., 70% of the parent container)
+              width: "70%",
             }}
             slotProps={{
               input: {

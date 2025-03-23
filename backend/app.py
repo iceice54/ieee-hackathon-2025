@@ -1,29 +1,10 @@
-import re
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from main import Manager
+from manager import Manager
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 genAI = Manager()
-
-def clean_response(text):
-    # Remove Markdown bold (**bold** → bold)
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
-
-    # Ensure proper spacing after punctuation
-    text = re.sub(r'(?<=\w)\.(?=[A-Z])', '. ', text)
-
-    # Replace multiple spaces with a single space
-    text = re.sub(r'\s+', ' ', text)
-
-    # Add paragraph breaks before section headers
-    text = re.sub(r'(?<=\n)([A-Z].*?:)', r'\n\n\1', text)  # Matches headers
-
-    # Add paragraph breaks before bullet points or lists
-    text = re.sub(r'(\n[-*])', r'\n\n\1', text)
-
-    return text.strip()
 
 @app.after_request
 def add_no_cache_headers(response):
@@ -36,14 +17,14 @@ def add_no_cache_headers(response):
 @app.route("/prompt", methods=["POST"])
 def handle_prompt():
     data = request.get_json()
-    # print(data)
     prompt = data.get("prompt", "")
-    # jsonString = data.get("jsonString", "{}")
-    # history = json.loads(jsonString) if isinstance(jsonString, str) else jsonString
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
-    response_text = genAI.query(prompt).text
-    return jsonify({"response": response_text.replace("\n", "<br>")})
+    response_text = genAI.query(prompt)
+    if len(response_text) == 1:
+        return jsonify({"response": response_text[0].text})
+    else:
+        return jsonify({"response": response_text[0].text + "\n" + response_text[1].text})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

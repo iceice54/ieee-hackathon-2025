@@ -18,9 +18,7 @@ results = collection.query(
     query_embeddings=[query_embedding],
     n_results=5
 )
-print("Total documents in collection:", collection.count())  # Should return > 0
-
-# print(results)
+print("Total documents in collection:", collection.count())  
 for i, doc in enumerate(results["documents"][0]):
     print(f"\nResult {i+1}:")
     print(f"Document: {doc}")

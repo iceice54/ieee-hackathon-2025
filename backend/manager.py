@@ -1,10 +1,14 @@
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import google.generativeai as genai
 import chromadb
 import json
 import re
+import os
+import google.generativeai as genai
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-genai.configure(api_key="AIzaSyDIUseb8tdRlaNzkQW29KwDUx6sU4_1bAk")
+from dotenv import load_dotenv
+
+load_dotenv()
+google_api_key = os.getenv("GOOGLE_API_KEY")
 
 genai.configure(api_key=google_api_key)
 
@@ -12,7 +16,7 @@ client = chromadb.PersistentClient(path="../chroma")
 collection = client.get_collection(name="knowledge_base")
 embedding_model = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=google_api_key)
 
-def query_chromadb(query_text, n_results=5):
+def query_chromadb(query_text, n_results=7):
     query_embedding = embedding_model.embed_query(query_text)
     results = collection.query(query_embeddings=[query_embedding], n_results=n_results)
 
@@ -31,6 +35,7 @@ class Manager:
     def __init__(self):
         self.retrieval = Retriever()
         self.decomposer = Decomposer()
+        self.informer = Informer()
         self.recommender = Recommender()
         self.emotion_recommender = Emotion_Recommender()
         self.critic = Critic()
@@ -45,17 +50,21 @@ class Manager:
         self.chat = self.model.start_chat(history=[{"role":"user", 
         "parts":["You are the Manager of an Agentic AI system in charge of implementing change strategies and you have a team consisting of "
         "a decomposer to break down the problem statement into defined tasks, "
+        "an informer to provide information on specific topics and to provide answers to simpler questions that do not require implementation strategies,"
         "a recommender to generate content/recommend actions based on the changes to be implemented, "
         "an emotion recommender to recommend ways to manage emotions to reduce resistance to change and foster greater trust, resilience and optimism, "
         "a summariser to summarise the recommended strategies to implement changes and add a faq section to the end, "
         "a critic to determine if the recommended strategies are relevant to the defined tasks and there are clearly highlighted reasons, goals and impacts of change, "
-        "and a communication drafter to write a communication draft to submit", "you are gay"]}])
+        "and a communication drafter to write a communication draft to submit if the user asks for it"]}])
 
     def query(self, user_query):
-        # user_query = input("What is your problem statement: ")
 
         tasks = self.decomposer.breakdown(user_query)
         agents = self.identify_agents(tasks.text)
+
+        if agents["informer"] == True:
+            info = self.informer.inform(user_query)
+            return [info]
 
         solution = self.recommender.recommend(tasks.text)
 
@@ -69,14 +78,15 @@ class Manager:
 
         if agents["communication_draft"] == True:
             communication_draft = self.communication_draft.draft(tasks.text, summary.text)
-            return communication_draft
+            return [summary, communication_draft]
         else:
-            return summary
+            return [summary]
     
     def identify_agents(self, tasks):
         response = self.chat.send_message("Given the defined tasks: " + tasks + ". Determine some agents you may not require for this job"
-        "specifically, the emotion_recommender and the communication_drafter, give true if you require the agent "
-        "Use this JSON schema: Return: {emotion_recommender={boolean}, communication_draft={boolean}}")
+        "specifically, the emotion_recommender, the communication_draft and the informer, give false if you dont require the agent. "
+        "give true for communication_draft if they ask for a communication draft"
+        "Use this JSON schema: Return: {emotion_recommender={boolean}, communication_draft={boolean}, informer={boolean}}}")
         response = response.text
         response = cleaner(response)
         response = json.loads(response)
@@ -121,6 +131,26 @@ class Retriever:
         data_string = json.dumps(data)
         return data_string
 
+class Informer:
+    def __init__(self):
+        self.retrieval = Retriever()
+        self.critic = Critic()
+        self.model = genai.GenerativeModel(model_name="gemini-2.0-flash",
+                              generation_config={
+                                  "temperature":0.0,
+                                  "top_k":40,
+                                  "top_p":0.0,
+                              })
+        self.chat = self.model.start_chat(history=[{"role":"user",
+        "parts":["You are a member of a change management committe who is well read on all things regarding"
+        "change management. Provide information and data on topics that are asked of you, but make each point"
+        "concise, not more than 4 sentences long."]}])
+
+    def inform(self, user_query):
+        data = self.retrieval.retrieve(user_query)
+        response = self.chat.send_message("Given the dataset: " + data + user_query)
+        return response
+
 
 class Recommender:
     def __init__(self):
@@ -140,7 +170,7 @@ class Recommender:
     def recommend(self, tasks):
         data = self.retrieval.retrieve(tasks)
         response = self.chat.send_message("Given the dataset: " + data + ", and the tasks: " + tasks + ", recommend some actions"
-        "to implement this change. Explcitly mention what frameworks are used.")
+        "to implement this change.")
         evaluation, feedback = self.critic.critic(tasks, response.text)
         while evaluation == False:
             response = self.improve(response.text, feedback.text)
@@ -150,7 +180,7 @@ class Recommender:
     def improve(self, solution, feedback):
         data = self.retrieval.retrieve(solution + feedback)
         response = self.chat.send_message("Given the feedback: " + feedback + ", and the old solution: " + solution + ", and the dataset: "  + data + 
-        ", use the feedback given and new data to improve upon the old solution and return a new improved solution. Explcitly mention what frameworks are used.")
+        ", use the feedback given and new data to improve upon the old solution and return a new improved solution.")
         return response
     
 
@@ -173,7 +203,7 @@ class Emotion_Recommender:
     def recommend(self, tasks):
         data = self.retrieval.retrieve(tasks)
         response = self.chat.send_message("Given the dataset: " + data + ", and the tasks: " + tasks + ", recommend some actions"
-        "to implement this change. Explcitly mention what frameworks are used.")
+        "to implement this change.")
         evaluation, feedback = self.critic.critic(tasks, response.text)
         while evaluation == False:
             response = self.improve(response.text, feedback.text)
@@ -183,7 +213,7 @@ class Emotion_Recommender:
     def improve(self, solution, feedback):
         data = self.retrieval.retrieve(solution + feedback)
         response = self.chat.send_message("Given the feedback: " + feedback + ", and the old solution: " + solution + ", and the dataset: " + data + 
-        ", use the feedback given and the new dataset to improve upon the old solution and return a new improved solution. Explcitly mention what frameworks are used.")
+        ", use the feedback given and the new dataset to improve upon the old solution and return a new improved solution.")
         return response
             
 
@@ -198,7 +228,8 @@ class Critic:
         self.chat = self.model.start_chat(history=[{"role":"user",
         "parts":["You are a critc that critically analyses change management strategies by determining if they are relevant to the defined tasks,"
         "and satisfy the scope of change: organisational. projects and people. Strategies should also be following frameworks to be considered good."
-        "You also critique communication drafts on whether reasons, goals and the impact of the change are clearly highlighted."]}])     
+        "You also critique communication drafts on whether reasons, goals and the impact of the change are clearly highlighted."
+        "You also critique responses to specific requests by users to assess whether or not tey are relevant to the requests."]}])     
 
     def critic(self, tasks, solution):
         response = self.chat.send_message("Given the defined tasks: " + tasks + ", and the suggested solution: " + solution +
@@ -212,6 +243,15 @@ class Critic:
     def critic_draft(self, tasks, draft):
         response = self.chat.send_message("Given the defined tasks: " + tasks + ", and the suggested solution: " + draft +
         ". Give an evaluation of the communication draft and determine whether or not you give it a pass, where true means pass and false means fail. "
+        "Use this JSON Schema: Return: {'pass':boolean, 'feedback':string}")
+        response = response.text
+        response = cleaner(response)
+        response = json.loads(response)
+        return response["pass"], response["feedback"]
+
+    def critic_info(self, tasks, response):
+        response = self.chat.send_message("Given the defined tasks: " + tasks + ", and the suggested response: " + response +
+        ". Give an evaluation of the response and determine whether or not you give it a pass, where true means pass and false means fail. "
         "Use this JSON Schema: Return: {'pass':boolean, 'feedback':string}")
         response = response.text
         response = cleaner(response)
@@ -235,7 +275,9 @@ class Summarise:
     def summarise(self, solution, solution_emotion):
         data = self.retrieval.retrieve(solution + solution_emotion)
         response = self.chat.send_message("Given the solution: " + solution + ", and the emotional solution: " + solution_emotion + ", and the given dataset: " + data +
-        "Give me a summary of the solutions in a concise, structured step-by-step format. Explcitly mention what frameworks are used. Include a FAQ at the back of the summary using relevant data form the data set given.")
+        "Give me a summary of the solutions in a concise, structured step-by-step format. "
+        "Explcitly mention what frameworks. Do not name the frameworks if you can only name them generically, for example, statement 7 or file 3 "
+        "Include a FAQ at the back of the summary using relevant data from the data set given if asked for.")
         return response
     
 
@@ -254,18 +296,13 @@ class Communication_Draft:
 
     def draft(self, tasks, summary):
         response = self.chat.send_message("Given the summary: " + summary + ", write a communication draft. Ensure that you make it as concise as possible. Only include 1 or 2 of the most important faqs at the back.")
-        evaluation, feedback = self.critic.critic(tasks, response.text)
+        evaluation, feedback = self.critic.critic_draft(tasks, response.text)
         while evaluation == False:
             response = self.improve(response.text, feedback.text)
-            evaluation, feedback = self.critic.critic(tasks, response.text)
+            evaluation, feedback = self.critic.critic_draft(tasks, response.text)
         return response
     
     def improve(self, draft, feedback):
         response = self.chat.send_message("Given the draft: " + draft + ", and the feedback given: " + feedback + 
         "Write a new draft based on the old draft and feedback given")
         return response
-    
-
-# main = Manager()
-# response = main.query()
-# print(response.text)
