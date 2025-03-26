@@ -161,7 +161,7 @@ function App() {
         )}
         {!isMessageSent && (
           <Typography variant="h2" color="#29867c" marginBottom="55px">
-            Changetic.AI
+            Changentic.AI
           </Typography>
         )}
 

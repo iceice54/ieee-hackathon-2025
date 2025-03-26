@@ -50,8 +50,8 @@ class Manager:
         self.chat = self.model.start_chat(history=[{"role":"user", 
         "parts":["You are the Manager of an Agentic AI system in charge of implementing change strategies and you have a team consisting of "
         "a decomposer to break down the problem statement into defined tasks, "
-        "an informer to provide information on specific topics and to provide answers to simpler questions that do not require implementation strategies,"
-        "a recommender to generate content/recommend actions based on the changes to be implemented, "
+        "an informer to provide information on topics and to provide answers to questions that require information,"
+        "a recommender to generate content/recommend actions based on the changes to be implemented if a recommendation is needed or asked for, "
         "an emotion recommender to recommend ways to manage emotions to reduce resistance to change and foster greater trust, resilience and optimism, "
         "a summariser to summarise the recommended strategies to implement changes and add a faq section to the end, "
         "a critic to determine if the recommended strategies are relevant to the defined tasks and there are clearly highlighted reasons, goals and impacts of change, "
@@ -164,7 +164,7 @@ class Recommender:
                               })
         self.chat = self.model.start_chat(history=[{"role":"user",
         "parts":["You are a member of a change management committe that is in charge of suggesting solutions "
-        "to implement changes based on data given to you. Generate content/recommend actions based on the changes"
+        "to implement changes based on data given to you, you do not have to mention the source. Generate content/recommend actions based on the changes"
         "to be implemented including the scope of change: orangisational, projects and people."]}])
 
     def recommend(self, tasks):
@@ -276,8 +276,8 @@ class Summarise:
         data = self.retrieval.retrieve(solution + solution_emotion)
         response = self.chat.send_message("Given the solution: " + solution + ", and the emotional solution: " + solution_emotion + ", and the given dataset: " + data +
         "Give me a summary of the solutions in a concise, structured step-by-step format. "
-        "Explcitly mention what frameworks. Do not name the frameworks if you can only name them generically, for example, statement 7 or file 3 "
-        "Include a FAQ at the back of the summary using relevant data from the data set given if asked for.")
+        "do not include title of document "
+        "Include a FAQ at the back of the summary using relevant data if asked for, do not include title of document.")
         return response
     
 
